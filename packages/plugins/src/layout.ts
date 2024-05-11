@@ -128,8 +128,20 @@ export default (api: IApi) => {
     }" />
 ${isFlattedDepsDir ? '/// <reference types="antd" />' : ''}
 `.trimStart();
+    // initialState 插件依赖于 model 插件，access 插件依赖于 initialState 插件
+    const hasModelPlugin = api.isPluginEnable('model');
+    const hasInitialStatePlugin = hasModelPlugin && api.isPluginEnable('initialState');
+    const hasAccessPlugin = hasInitialStatePlugin && api.isPluginEnable('access');
+    const hasCustomAccessPlugin = api.isPluginEnable('customAccess');
+    let accessReference: string = hasCustomAccessPlugin ? `
+import { useAccessMarkedRoutes } from '${api.config.customAccess.pluginPath}';
+` : '';
+    if (!accessReference) {
+      accessReference = hasAccessPlugin ? `
+      import { useAccessMarkedRoutes } from '@@/plugin-access';
+             `.trim() : 'const useAccessMarkedRoutes = (r) => r;';
+    }
 
-    const hasInitialStatePlugin = api.config.initialState;
     // Layout.tsx
     api.writeTmpFile({
       path: 'Layout.tsx',
@@ -152,13 +164,7 @@ ${
     ? `import { useModel } from '@@/plugin-model';`
     : 'const useModel = null;'
 }
-${
-  api.config.access
-    ? `
-import { useAccessMarkedRoutes } from '@@/plugin-access';
-   `.trim()
-    : 'const useAccessMarkedRoutes = (r) => r;'
-}
+${accessReference}
 ${
   api.config.locale
     ? `
